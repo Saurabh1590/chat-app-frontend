@@ -1,54 +1,56 @@
-import { useEffect, useRef, useState } from "react"
+import { useState, useEffect } from "react";
+import { JoinScreen } from "./components/JoinScreen";
+import { ChatRoom } from "./screens/ChatRoom";
+import type { UserCredentials } from "./types";
 
 function App() {
+  const [joined, setJoined] = useState(false);
+  const [credentials, setCredentials] = useState<UserCredentials>({
+    username: "",
+    roomId: "",
+  });
 
-  const [messages, setMessages] = useState(["hello everyone", "Good Morning"]);
-  const wsRef = useRef();
-
-  
-
+  // ⭐ Auto-restore session on page refresh
   useEffect(() => {
-    const ws = new WebSocket("ws://localhost:8080");
-    ws.onmessage = (event) => {
-      setMessages(m => [...m, event.data])
-    }
-    wsRef.current = ws;
+    const username = localStorage.getItem("username");
+    const roomId = localStorage.getItem("roomId");
 
-    ws.onopen = () => {
-      ws.send(JSON.stringify({
-        type: "join",
-        payload: {
-          roomId: "red"  
-        }
-      }))
+    if (username && roomId) {
+      setCredentials({ username, roomId });
+      setJoined(true);
     }
-  }, [])
+  }, []);
+
+  // ⭐ Save username + roomId on join
+  const handleJoin = (username: string, roomId: string) => {
+    localStorage.setItem("username", username);
+    localStorage.setItem("roomId", roomId);
+
+    setCredentials({ username, roomId });
+    setJoined(true);
+  };
+
+  // ⭐ Clear storage when leaving room manually
+  const handleLeave = () => {
+    localStorage.removeItem("username");
+    localStorage.removeItem("roomId");
+    localStorage.removeItem("userId"); 
+
+    setJoined(false);
+    setCredentials({ username: "", roomId: "" });
+  };
+
+  if (!joined) {
+    return <JoinScreen onJoin={handleJoin} />;
+  }
 
   return (
-    <div className="h-full w-screen bg-[#634A92]">
-      <div className="h-[95vh] m-4 border-solid border outline-white rounded-md">
-        {
-          messages.map((msg) => 
-          <div className="m-5">
-            <span className="bg-white text-[#634A92] p-2 rounded-md">{msg}</span>
-          </div>)
-        }
-      </div>
-      <div className="p-2 m-4 border-solid border-2 outline-white rounded-md flex justify-between">
-        <input id="input" className="bg-[#1b0c37] w-full rounded-md" type="text"></input>
-        <button onClick={() => {
-          const message = document.getElementById("input")?.value;
-
-          wsRef.current.send(JSON.stringify({
-            type: "chat",
-            payload: {
-              message: message,
-            }
-          }))
-        }} className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 border border-blue-700 rounded ml-2">Send</button>
-      </div>
-    </div>
-  )
+    <ChatRoom
+      username={credentials.username}
+      roomId={credentials.roomId}
+      onLeave={handleLeave}
+    />
+  );
 }
 
-export default App
+export default App;
